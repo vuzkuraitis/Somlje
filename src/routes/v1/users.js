@@ -2,8 +2,9 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const Joi = require('joi');
 const bcrypt = require('bcrypt');
+const jsonwebtoken = require('jsonwebtoken');
 
-const { mysqlConfig } = require('../../config');
+const { mysqlConfig, jwtSecret } = require('../../config');
 
 const router = express.Router();
 
@@ -50,7 +51,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.get('/login', async (req, res) => {
+router.post('/login', async (req, res) => {
   let userDetails;
   try {
     // eslint-disable-next-line no-unused-vars
@@ -74,7 +75,9 @@ router.get('/login', async (req, res) => {
       return res.status(400).send({ err: 'Incorrect password' });
     }
 
-    return res.send({ msg: 'Succesfully logged in', accountId: data[0].id });
+    const token = jsonwebtoken.sign({ accountId: data[0].id }, jwtSecret);
+
+    return res.send({ msg: 'Succesfully logged in', token });
   } catch (err) {
     console.log(err);
     return res.status(500).send({ err: 'A server issue has occured - please try again later' });

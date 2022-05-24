@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
 
     await con.end();
 
-    return res.send(data);
+    return res.send({ msg: 'Succesfully created account', accountId: data.insertId });
   } catch (err) {
     console.log(err);
     return res.status(500).send({ err: 'A server issue has occured - please try again later' });

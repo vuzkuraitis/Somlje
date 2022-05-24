@@ -3,6 +3,7 @@ const cors = require('cors');
 
 const UserRoutes = require('./routes/v1/users');
 const WineRoutes = require('./routes/v1/wines');
+const CollectionRoutes = require('./routes/v1/collections');
 
 const { serverPort } = require('./config');
 
@@ -16,6 +17,7 @@ app.get('/', (req, res) => {
 
 app.use('/v1/users/', UserRoutes);
 app.use('/v1/wines/', WineRoutes);
+app.use('/v1/collections/', CollectionRoutes);
 
 app.all('*', (req, res) => {
   res.status(404).send({ err: 'Page not found' });
