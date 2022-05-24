@@ -6,10 +6,11 @@ const jsonwebtoken = require('jsonwebtoken');
 
 const { mysqlConfig, jwtSecret } = require('../../config');
 const validation = require('../../middleware/validation');
+const isLoggedIn = require('../../middleware/auth');
 
 const router = express.Router();
 
-const userSchema = Joi.object({
+const registrationSchema = Joi.object({
   name: Joi.string().trim().required(),
   email: Joi.string().email().lowercase().trim().required(),
   password: Joi.string().required(),
@@ -20,7 +21,12 @@ const userLoginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
-router.post('/register', validation(userSchema), async (req, res) => {
+const changePasswordSchema = Joi.object({
+  oldPassword: Joi.string().required(),
+  newPassword: Joi.string().required(),
+});
+
+router.post('/register', validation(registrationSchema), async (req, res) => {
   try {
     const hash = bcrypt.hashSync(req.body.password, 10);
 
@@ -33,38 +39,31 @@ router.post('/register', validation(userSchema), async (req, res) => {
     await con.end();
 
     if (!data.insertId || data.affectedRows !== 1) {
-      console.log(data);
-      return res.status(500).send({ err: 'A server issue has occured - please try again later' });
+      return res.status(500).send({ err: 'A server issue has occured. Please try again later' });
     }
 
     return res.send({ msg: 'Succesfully created account', accountId: data.insertId });
   } catch (err) {
     console.log(err);
-    return res.status(500).send({ err: 'A server issue has occured - please try again later' });
+    return res.status(500).send({ err: 'A server issue has occured. Please try again later' });
   }
 });
 
 router.post('/login', validation(userLoginSchema), async (req, res) => {
-  let userDetails;
-  try {
-    // eslint-disable-next-line no-unused-vars
-    userDetails = await userLoginSchema.validateAsync(req.body);
-  } catch (err) {
-    console.log(err);
-    return res.status(400).send({ err: 'Incorrect data sent' });
-  }
   try {
     const con = await mysql.createConnection(mysqlConfig);
     const [data] = await con.execute(`
-    SELECT id, email, password FROM users 
-    WHERE email = ${mysql.escape(userDetails.email)} LIMIT 1`);
+    SELECT id, email, password 
+    FROM users 
+    WHERE email = ${mysql.escape(req.body.email)} 
+    LIMIT 1`);
     await con.end();
 
     if (data.length === 0) {
       return res.status(400).send({ err: 'User Not Found' });
     }
 
-    if (!bcrypt.compareSync(userDetails.password, data[0].password)) {
+    if (!bcrypt.compareSync(req.body.password, data[0].password)) {
       return res.status(400).send({ err: 'Incorrect password' });
     }
 
@@ -72,8 +71,38 @@ router.post('/login', validation(userLoginSchema), async (req, res) => {
 
     return res.send({ msg: 'Succesfully logged in', token });
   } catch (err) {
-    console.log(err);
-    return res.status(500).send({ err: 'A server issue has occured - please try again later' });
+    return res.status(500).send({ err: 'A server issue has occured. Please try again later' });
+  }
+});
+
+router.post('/change-password', isLoggedIn, validation(changePasswordSchema), async (req, res) => {
+  try {
+    const con = await mysql.createConnection(mysqlConfig);
+    const [data] = await con.execute(`
+    SELECT id, email, password 
+    FROM users 
+    WHERE id = ${mysql.escape(req.user.accountId)}
+    LIMIT 1
+    `);
+
+    const checkHash = bcrypt.compareSync(req.body.oldPassword, data[0].password);
+
+    if (!checkHash) {
+      await con.end();
+      return res.status(400).send({ err: 'Incorrect Old Password' });
+    }
+
+    const newPasswordHash = bcrypt.hashSync(req.body.newPassword, 10);
+
+    const changePassDBRes = await con.execute(
+      `UPDATE users SET password = ${mysql.escape(newPasswordHash)} WHERE id = ${mysql.escape(req.user.accountId)}`,
+    );
+
+    console.log(changePassDBRes);
+    await con.end();
+    return res.send({ msg: 'Password has been changed' });
+  } catch (err) {
+    return res.status(500).send({ err: 'Server issue occured. Please try again later' });
   }
 });
 
