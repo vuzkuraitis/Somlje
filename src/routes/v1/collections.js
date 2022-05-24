@@ -5,7 +5,7 @@ const jsonwebtoken = require('jsonwebtoken');
 const mysql = require('mysql2/promise');
 
 const { mysqlConfig, jwtSecret } = require('../../config');
-const { isLoggedIn } = require('../../middleware');
+const isLoggedIn = require('../../middleware/auth');
 
 const router = express.Router();
 

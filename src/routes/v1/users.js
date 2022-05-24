@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jsonwebtoken = require('jsonwebtoken');
 
 const { mysqlConfig, jwtSecret } = require('../../config');
+const validation = require('../../middleware/validation');
 
 const router = express.Router();
 
@@ -19,17 +20,9 @@ const userLoginSchema = Joi.object({
   password: Joi.string().required(),
 });
 
-router.post('/register', async (req, res) => {
-  let userDetails;
+router.post('/register', validation(userSchema), async (req, res) => {
   try {
-    // eslint-disable-next-line no-unused-vars
-    userDetails = await userSchema.validateAsync(req.body);
-  } catch (err) {
-    console.log(err);
-    return res.status(400).send({ err: 'Incorrect data sent' });
-  }
-  try {
-    const hash = bcrypt.hashSync(userDetails.password, 10);
+    const hash = bcrypt.hashSync(req.body.password, 10);
 
     const con = await mysql.createConnection(mysqlConfig);
     const [data] = await con.execute(`
@@ -51,7 +44,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', validation(userLoginSchema), async (req, res) => {
   let userDetails;
   try {
     // eslint-disable-next-line no-unused-vars
